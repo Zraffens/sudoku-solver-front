@@ -12,6 +12,7 @@ const Uploader = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [originalFileName, setOriginalFileName] = useState('');
   const navigate = useNavigate();
   const cropperRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -19,6 +20,7 @@ const Uploader = () => {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      setOriginalFileName(file.name);
       const reader = new FileReader();
       reader.onload = () => {
         setImage(reader.result);
@@ -33,6 +35,7 @@ const Uploader = () => {
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) {
+      setOriginalFileName(file.name); 
       const reader = new FileReader();
       reader.onload = () => {
         setImage(reader.result);
@@ -55,7 +58,13 @@ const Uploader = () => {
     if (cropperRef.current && cropperRef.current.cropper) {
       const croppedCanvas = cropperRef.current.cropper.getCroppedCanvas();
       croppedCanvas.toBlob((blob) => {
-        const file = new File([blob], 'cropped_image.png', { type: 'image/png' });
+        console.log(originalFileName)
+        const fileExtension = originalFileName.split('.').pop();
+        const fileNameWithoutExtension = originalFileName.replace(`.${fileExtension}`, '');
+        const croppedFileName = `${fileNameWithoutExtension}_cropped.${fileExtension}`
+        console.log(croppedFileName)
+        setUploadedFileName(croppedFileName)
+        const file = new File([blob], croppedFileName, { type: blob.type });
         setCroppedImage(URL.createObjectURL(file));
         setIsModalOpen(false);
         uploadImage(file);
@@ -65,7 +74,7 @@ const Uploader = () => {
 
   const uploadImage = (file) => {
     setIsLoading(true);
-    setUploadedFileName(file.name);
+    setOriginalFileName(file.name); 
     const formData = new FormData();
     formData.append('image', file);
 
@@ -78,6 +87,7 @@ const Uploader = () => {
       .catch(error => {
         console.error('Error uploading image:', error);
         setIsLoading(false);
+        navigate('/edit');
       });
   };
 
@@ -119,7 +129,6 @@ const Uploader = () => {
             <Cropper
               src={image}
               style={{ height: 400, width: '100%' }}
-              aspectRatio={1}
               guides={false}
               ref={cropperRef}
             />
