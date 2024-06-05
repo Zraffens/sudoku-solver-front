@@ -1,99 +1,93 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './Edit.css';
 import { FaUndo, FaEraser } from 'react-icons/fa';
+import './Edit.css';
 
 const Edit = () => {
-  const [board, setBoard] = useState(Array(9).fill(Array(9).fill('')));
-  const [history, setHistory] = useState([]);
-  const [selectedCell, setSelectedCell] = useState(null);
-  const navigate = useNavigate();
+  const [board, setBoard] = useState([
+    // Example initial board state
+    [5, null, null, 8, 4, null, 9, 7, 6],
+    [null, null, 9, 5, null, null, null, null, null],
+    [null, 3, null, null, null, 9, null, null, null],
+    [1, null, null, null, 9, null, null, null, 6],
+    [7, null, 5, null, 9, 8, null, 4, null],
+    [4, null, 9, null, null, 2, null, 1, null],
+    [null, 6, null, 2, null, 3, null, 1, null],
+    [null, 4, null, 1, 2, 9, 4, null, 3],
+    [null, null, null, null, null, null, null, 7, null],
+  ]);
 
-  useEffect(() => {
-    // Fetch the initial board data from the backend (placeholder)
-    fetch('http://localhost:5000/get-initial-board')
-      .then(response => response.json())
-      .then(data => {
-        setBoard(data.board);
-        setHistory([data.board]);
-      });
-  }, []);
+  const [selectedCell, setSelectedCell] = useState({ row: null, col: null });
+  const [history, setHistory] = useState([]);
 
   const handleCellClick = (row, col) => {
     setSelectedCell({ row, col });
   };
 
   const handleNumberClick = (number) => {
-    if (selectedCell) {
-      const newBoard = board.map((r, rowIndex) => 
-        r.map((cell, colIndex) => 
-          rowIndex === selectedCell.row && colIndex === selectedCell.col ? number : cell
-        )
-      );
+    if (selectedCell.row !== null && selectedCell.col !== null) {
+      const newBoard = [...board];
+      const previousValue = newBoard[selectedCell.row][selectedCell.col];
+      newBoard[selectedCell.row][selectedCell.col] = number;
       setBoard(newBoard);
-      setHistory([...history, newBoard]);
-      setSelectedCell(null);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (selectedCell && /^[1-9]$/.test(e.key)) {
-      handleNumberClick(parseInt(e.key, 10));
-    } else if (selectedCell && e.key === 'Backspace') {
-      handleErase();
-    }
-  };
-
-  const handleErase = () => {
-    if (selectedCell) {
-      const newBoard = board.map((r, rowIndex) => 
-        r.map((cell, colIndex) => 
-          rowIndex === selectedCell.row && colIndex === selectedCell.col ? '' : cell
-        )
-      );
-      setBoard(newBoard);
-      setHistory([...history, newBoard]);
-      setSelectedCell(null);
+      setHistory([...history, { ...selectedCell, value: previousValue }]);
     }
   };
 
   const handleUndo = () => {
-    if (history.length > 1) {
-      const newHistory = history.slice(0, -1);
-      setBoard(newHistory[newHistory.length - 1]);
-      setHistory(newHistory);
+    if (history.length > 0) {
+      const lastAction = history.pop();
+      const newBoard = [...board];
+      newBoard[lastAction.row][lastAction.col] = lastAction.value;
+      setBoard(newBoard);
+      setHistory(history);
+    }
+  };
+
+  const handleErase = () => {
+    if (selectedCell.row !== null && selectedCell.col !== null) {
+      const newBoard = [...board];
+      const previousValue = newBoard[selectedCell.row][selectedCell.col];
+      newBoard[selectedCell.row][selectedCell.col] = null;
+      setBoard(newBoard);
+      setHistory([...history, { ...selectedCell, value: previousValue }]);
+    }
+  };
+
+  const handleKeyPress = (event) => {
+    if (selectedCell.row !== null && selectedCell.col !== null) {
+      if (event.key >= '1' && event.key <= '9') {
+        handleNumberClick(parseInt(event.key));
+      } else if (event.key === 'Backspace') {
+        handleErase();
+      }
     }
   };
 
   useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyPress);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyPress);
     };
-  }, [selectedCell]);
-
-  const handleConfirm = () => {
-    navigate('/solve');
-  };
+  }, [selectedCell, handleKeyPress]);
 
   return (
     <div className="edit-page-container">
       <div className="header">Confirm your Board</div>
       <div className="content-container">
         <div className="sudoku-grid">
-          {board.map((row, rowIndex) => (
-            <div key={rowIndex} className="sudoku-row">
-              {row.map((cell, colIndex) => (
-                <div
-                  key={colIndex}
-                  className={`sudoku-cell ${selectedCell && selectedCell.row === rowIndex && selectedCell.col === colIndex ? 'selected' : ''}`}
-                  onClick={() => handleCellClick(rowIndex, colIndex)}
-                >
-                  {cell}
-                </div>
-              ))}
-            </div>
-          ))}
+          {board.map((row, rowIndex) =>
+            row.map((cell, colIndex) => (
+              <div
+                key={`${rowIndex}-${colIndex}`}
+                className={`sudoku-cell ${
+                  selectedCell.row === rowIndex && selectedCell.col === colIndex ? 'selected' : ''
+                }`}
+                onClick={() => handleCellClick(rowIndex, colIndex)}
+              >
+                {cell}
+              </div>
+            ))
+          )}
         </div>
         <div className="controls">
           <div className="control-buttons">
@@ -105,15 +99,17 @@ const Edit = () => {
             </button>
           </div>
           <div className="number-pad">
-            {Array.from({ length: 9 }, (_, i) => i + 1).map(number => (
-              <button key={number} className="number-button" onClick={() => handleNumberClick(number)}>
+            {Array.from({ length: 9 }, (_, i) => i + 1).map((number) => (
+              <button
+                key={number}
+                className="number-button"
+                onClick={() => handleNumberClick(number)}
+              >
                 {number}
               </button>
             ))}
           </div>
-          <button className="confirm-button" onClick={handleConfirm}>
-            Confirm
-          </button>
+          <button className="confirm-button">Confirm</button>
         </div>
       </div>
     </div>
